@@ -15,5 +15,3 @@ Data Structure &amp; Algorithms
 ## AI Games
 
 [Vindinium](http://vindinium.org/)
-
-[CodeinGame](https://www.codingame.com/start)
