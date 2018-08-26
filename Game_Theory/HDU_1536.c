@@ -9,7 +9,7 @@ int main(){
         for(int i = 0; i < k; i++){
             scanf("%d", &S[i]);
         }
-        bubbleSort(S, k);
+        //bubbleSort(S, k);
         int SG[10001];
         int has[10001];
         memset(SG, 0, sizeof(SG));

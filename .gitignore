@@ -1,1 +1,4 @@
 .vscode/settings.json
+*.out
+*.o
+Game_Theory/readme
