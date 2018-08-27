@@ -1,6 +1,11 @@
 #include "aphajson.h"
 #include "env.h"
 
+typedef struct {
+    const char* json;
+}apha_context;
+
+
 static void apha_ignore_whitespace(apha_context* c){
     const char* p = c->json;
     while( *p == ' ' || *p == '\t' || *p == '\n' || *p == '\r'){
@@ -21,7 +26,7 @@ static int apha_parse_null(apha_value* v, apha_context* c){
 }
 
 static int apha_parse_true(apha_value* v, apha_context* c){
-    assert(*(c->json) == 't');
+    assert(c->json[0] == 't');
 
     if( (c->json[1] != 'r') || (c->json[2] != 'u') || (c->json[3] != 'e') ){
         return APHA_PARSE_INVALID_VALUE;
@@ -42,6 +47,17 @@ static int apha_parse_false(apha_value* v, apha_context* c){
     return APHA_PARSE_OK;
 }
 
+static int apha_parse_number(apha_value* v, apha_context* c){
+    char* end;
+    v->number = strtod(c->json, &end);
+    if(c->json == end){
+        return APHA_PARSE_INVALID_VALUE;
+    }
+    c->json = end;
+    v->type = APHA_NUMBER;
+    return APHA_PARSE_OK;
+}
+
 static int apha_parse_value(apha_value* v, apha_context* c){
     const char* p = c->json;
     
@@ -50,7 +66,7 @@ static int apha_parse_value(apha_value* v, apha_context* c){
         case 't' : return apha_parse_true(v, c);
         case 'f' : return apha_parse_false(v, c);
         case '\0' : return APHA_PARSE_EXCEPT_VALUE;
-        default : return APHA_PARSE_INVALID_VALUE;
+        default : return apha_parse_number(v, c);
     }
 }
 
@@ -64,7 +80,7 @@ int apha_parse(apha_value* v, const char* json){
     int ret = apha_parse_value(v, &c);
     if(ret == APHA_PARSE_OK){
         apha_ignore_whitespace(&c);
-        if(*(c.json) == '\0'){
+        if(*c.json == '\0'){
             return APHA_PARSE_OK;
         }else{
             return APHA_PARSE_ROOT_NOT_SINGULAR;
@@ -75,4 +91,8 @@ int apha_parse(apha_value* v, const char* json){
 
 apha_type apha_get_type(apha_value* v){
     return v->type;
+}
+
+double apha_get_number(apha_value* v){
+    return v->number;
 }
