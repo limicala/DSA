@@ -151,6 +151,32 @@ static void test_parse_invalid_value(){
     TEST_ERROR(APHA_PARSE_INVALID_VALUE, "nan");
 }
 
+static void test_parse_invalid_unicode_hex() {
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u0\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u01\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u012\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u/000\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\uG000\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u0G00\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u00G0\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u000/\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"");
+}
+
+static void test_parse_invalid_unicode_surrogate() {
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"");
+#if 0
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uDBFF\"");
+    TEST_ERROR(APHA_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
+#endif
+}
+
 static void test_parse(){
 #if 0
     test_parse_null();
@@ -162,10 +188,15 @@ static void test_parse(){
     test_parse_number();
     test_parse_invalid_value();
 #endif
+#if 0
     test_parse_string();
     test_parse_missing_quotation_mark();
     test_parse_invalid_string_escape();
     test_parse_invalid_string_char();
+    test_parse_invalid_unicode_hex();
+#endif
+    
+    test_parse_invalid_unicode_surrogate();
 }
 int main(){
     test_parse();

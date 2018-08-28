@@ -58,6 +58,39 @@ static int apha_parse_literal(apha_value* v, apha_context* c, const char* litera
     v->type = type;
     return APHA_PARSE_OK;
 }
+
+static const char* lept_parse_hex4(const char* p, unsigned* u){
+    int i;
+    *u = 0;
+    for(i = 0; i < 4; i++){
+        char ch = *p++;
+        *u <<= 4;
+        
+        if('0' <= ch && ch <= '9') { *u |= ch - '0'; }
+        else if('a' <= ch && ch <= 'f') { *u |= ch - 'a' + 10; }
+        else if('A' <= ch && ch <= 'F') { *u |= ch - 'A' + 10; }
+        else return NULL;
+    }
+    return p;
+}
+
+static void lept_encode_utf8(apha_context* c, unsigned u){
+    if (u <= 0x007F){
+        PUTC(c, u);
+    }else if (u <= 0x07FF) {
+        PUTC(c, 0xC0 | u >> 6);
+        PUTC(c, 0x80 | u);
+    }else if (u <= 0xFFFF) {
+        PUTC(c, 0xE0 | u >> 12);
+        PUTC(c, 0x80 | u >> 6);
+        PUTC(c, 0x80 | u);
+    }else {
+        PUTC(c, 0xF0 | u >> 18);
+        PUTC(c, 0x80 | u >> 12);
+        PUTC(c, 0x80 | u >> 6);
+        PUTC(c, 0x80 | u);
+    }
+}
 #if 0
 static int apha_parse_null(apha_value* v, apha_context* c){
     assert(*(c->json) == 'n');
@@ -127,6 +160,7 @@ static int apha_parse_string(apha_value* v, apha_context* c){
     size_t head = c->top, len;
     const char* p = c->json;
     assert(*p == '\"');
+    unsigned u; // 4 bytes
     p++;
     while(1){
         char ch = *p++;
@@ -146,6 +180,28 @@ static int apha_parse_string(apha_value* v, apha_context* c){
                     case 'n'  :  PUTC(c, '\n'); break;
                     case 'r'  :  PUTC(c, '\r'); break;
                     case 't'  :  PUTC(c, '\t'); break;
+                    case 'u'  :
+                        if (!(p = lept_parse_hex4(p, &u))){
+                            c->top = head;
+                            return APHA_PARSE_INVALID_UNICODE_HEX;
+                        }
+                        printf("u[%u]\n", u);
+                        if(0xD800 <= u && u <= 0xDBFF){
+                            if(*p++ != '\\') return APHA_PARSE_INVALID_UNICODE_SURROGATE;
+                            if(*p++ != 'u')  return APHA_PARSE_INVALID_UNICODE_SURROGATE;
+                            unsigned u2;
+                            if (!(p = lept_parse_hex4(p, &u2))){
+                                c->top = head;
+                                return APHA_PARSE_INVALID_UNICODE_HEX;
+                            }
+                            if(!(0xDC00 <= u2 && u2 <= 0xDFFF)){
+                                c->top = head;
+                                return APHA_PARSE_INVALID_UNICODE_SURROGATE;
+                            }
+                            u = 0x10000 + (u - 0xD800) * 0x400 + (u2 - 0xDC00);
+                        }
+                        lept_encode_utf8(c, u);
+                        break;
                     default :
                         c->top = head;
                         return APHA_PARSE_INVALID_STRING_ESCAPE;
