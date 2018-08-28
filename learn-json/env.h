@@ -3,4 +3,4 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <math.h>
+#include <math.h> /* HUGE_VAL */

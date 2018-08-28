@@ -2,3 +2,5 @@
 *.out
 *.o
 Game_Theory/readme
+learn-json/test
+learn-json/other_test.cpp

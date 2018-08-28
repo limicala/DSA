@@ -16,6 +16,11 @@ int test_count = 0;
 
 #define ASSERT_INT(except, actual) ASSERT_BASE( (except) == (actual), except, actual, "%d") 
 #define ASSERT_DOUBLE(except, actual) ASSERT_BASE( (except) == (actual), except, actual, "%lf")
+#define ASSERT_STR(except, actual, actual_len) \
+    ASSERT_BASE(sizeof(except) - 1 == actual_len && memcmp(except, actual, actual_len) == 0, except, actual, "%s")
+
+#define ASSERT_TRUE(actual)  ASSERT_BASE( actual != 0, "true", "false", "%s")
+#define ASSERT_FALSE(actual) ASSERT_BASE( actual == 0, "false", "true", "%s")
 
 #define TEST_ERROR(expect_ret, json) do {\
     apha_value v; \
@@ -90,6 +95,39 @@ static void test_parse_number_too_big() {
 #endif
 }
 
+#define TEST_STRING(except, json) do {\
+    apha_value v;\
+    apha_init(&v);\
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, json));\
+    ASSERT_INT(APHA_STRING, apha_get_type(&v));\
+    ASSERT_STR(except, apha_get_string(&v), apha_get_string_length(&v));\
+    apha_free(&v);\
+} while(0)
+
+static void test_parse_string() {
+    TEST_STRING("", "\"\"");
+    TEST_STRING("Hello", "\"Hello\"");
+    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+}
+
+static void test_parse_missing_quotation_mark() {
+    TEST_ERROR(APHA_PARSE_MISS_QUOTATION_MARK, "\"");
+    TEST_ERROR(APHA_PARSE_MISS_QUOTATION_MARK, "\"abc");
+}
+
+static void test_parse_invalid_string_escape() {
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_ESCAPE, "\"\\v\"");
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_ESCAPE, "\"\\'\"");
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_ESCAPE, "\"\\0\"");
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_ESCAPE, "\"\\x12\"");
+}
+
+static void test_parse_invalid_string_char() {
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
+    TEST_ERROR(APHA_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
+}
+
 static void test_parse_not_singular(){
     TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "null x");
     TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "null null");
@@ -118,16 +156,17 @@ static void test_parse(){
     test_parse_null();
     test_parse_true();
     test_parse_false();
-#endif  
     test_parse_number_too_big();
     test_parse_not_singular();
     test_parse_invalid_value();
     test_parse_number();
-#if 0
     test_parse_invalid_value();
 #endif
+    test_parse_string();
+    test_parse_missing_quotation_mark();
+    test_parse_invalid_string_escape();
+    test_parse_invalid_string_char();
 }
-#include <errno.h>
 int main(){
     test_parse();
     printf("%d/%d passed\n", test_pass, test_count);
