@@ -5,6 +5,8 @@ typedef struct {
     const char* json;
 }apha_context;
 
+#define isDigit1To9(ch) ('1' <= ch && ch <= '9')
+#define isDigit(ch)     ('0' <= ch && ch <= '9')
 
 static void apha_ignore_whitespace(apha_context* c){
     const char* p = c->json;
@@ -48,12 +50,31 @@ static int apha_parse_false(apha_value* v, apha_context* c){
 }
 
 static int apha_parse_number(apha_value* v, apha_context* c){
-    char* end;
-    v->number = strtod(c->json, &end);
-    if(c->json == end){
-        return APHA_PARSE_INVALID_VALUE;
+    const char* p = c->json;
+    if(*p == '-') { p++; }
+    if(*p == '0') { p++; }
+    else {
+        if(!isDigit1To9(*p)) return APHA_PARSE_INVALID_VALUE;
+        p++;
+        while(isDigit(*p)) { p++; }
     }
-    c->json = end;
+    if(*p == '.') { 
+        p++;
+        if(!isDigit(*p)) return APHA_PARSE_INVALID_VALUE;
+        p++;
+        while(isDigit(*p)) { p++; }
+    }
+    if(*p == 'e' || *p == 'E') { 
+        p++;
+        if(*p == '+' || *p == '-') { p++; }
+        while(isDigit(*p)) { p++; }
+    }
+
+    v->number = strtod(c->json, NULL);
+    if(ERANGE == errno && (v->number == HUGE_VAL || v->number == -HUGE_VAL)){
+        return APHA_PARSE_NUMBER_TOO_BIG;
+    }
+    c->json = p;
     v->type = APHA_NUMBER;
     return APHA_PARSE_OK;
 }
@@ -80,10 +101,9 @@ int apha_parse(apha_value* v, const char* json){
     int ret = apha_parse_value(v, &c);
     if(ret == APHA_PARSE_OK){
         apha_ignore_whitespace(&c);
-        if(*c.json == '\0'){
-            return APHA_PARSE_OK;
-        }else{
-            return APHA_PARSE_ROOT_NOT_SINGULAR;
+        if(*c.json != '\0'){
+            v->type = APHA_NULL;
+            ret = APHA_PARSE_ROOT_NOT_SINGULAR;
         }
     }
     return ret;

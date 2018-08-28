@@ -44,12 +44,43 @@ static void test_parse_false(){
     ASSERT_INT(APHA_FALSE, apha_get_type(&v));
 }
 
-static void test_parse_number(){
-    apha_value v;
+#define TEST_NUMBER(except, json) do{\
+    apha_value v;\
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, json));\
+    ASSERT_INT(APHA_NUMBER, apha_get_type(&v));\
+    ASSERT_DOUBLE(except, apha_get_number(&v));\
+}while(0)
 
-    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, "1.4"));
-    ASSERT_INT(APHA_NUMBER, apha_get_type(&v));
-    ASSERT_DOUBLE(1.4, apha_get_number(&v));
+static void test_parse_number(){
+    TEST_NUMBER(0.0, "0");
+    TEST_NUMBER(0.0, "-0");
+    TEST_NUMBER(0.0, "-0.0");
+    TEST_NUMBER(1.0, "1");
+    TEST_NUMBER(-1.0, "-1");
+    TEST_NUMBER(1.5, "1.5");
+    TEST_NUMBER(-1.5, "-1.5");
+    TEST_NUMBER(3.1416, "3.1416");
+    TEST_NUMBER(1E10, "1E10");
+    TEST_NUMBER(1e10, "1e10");
+    TEST_NUMBER(1E+10, "1E+10");
+    TEST_NUMBER(1E-10, "1E-10");
+    TEST_NUMBER(-1E10, "-1E10");
+    TEST_NUMBER(-1e10, "-1e10");
+    TEST_NUMBER(-1E+10, "-1E+10");
+    TEST_NUMBER(-1E-10, "-1E-10");
+    TEST_NUMBER(1.234E+10, "1.234E+10");
+    TEST_NUMBER(1.234E-10, "1.234E-10");
+    TEST_NUMBER(0.0, "1e-10000"); /* must underflow */
+
+    TEST_NUMBER(1.0000000000000002, "1.0000000000000002"); /* the smallest number > 1 */
+    TEST_NUMBER( 4.9406564584124654e-324, "4.9406564584124654e-324"); /* minimum denormal */
+    TEST_NUMBER(-4.9406564584124654e-324, "-4.9406564584124654e-324");
+    TEST_NUMBER( 2.2250738585072009e-308, "2.2250738585072009e-308");  /* Max subnormal double */
+    TEST_NUMBER(-2.2250738585072009e-308, "-2.2250738585072009e-308");
+    TEST_NUMBER( 2.2250738585072014e-308, "2.2250738585072014e-308");  /* Min normal positive double */
+    TEST_NUMBER(-2.2250738585072014e-308, "-2.2250738585072014e-308");
+    TEST_NUMBER( 1.7976931348623157e+308, "1.7976931348623157e+308");  /* Max double */
+    TEST_NUMBER(-1.7976931348623157e+308, "-1.7976931348623157e+308");
 }
 
 static void test_parse_number_too_big() {
@@ -62,11 +93,24 @@ static void test_parse_number_too_big() {
 static void test_parse_not_singular(){
     TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "null x");
     TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "null null");
+
+    /* invalid number */
+    TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "0123"); /* after zero should be '.' or nothing */
+    TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "0x0");
+    TEST_ERROR(APHA_PARSE_ROOT_NOT_SINGULAR, "0x123");
 }
 
 static void test_parse_invalid_value(){
+#if 1
     TEST_ERROR(APHA_PARSE_INVALID_VALUE, " fz");
     TEST_ERROR(APHA_PARSE_INVALID_VALUE, " nula");
+#endif
+    /* invalid number */
+    TEST_ERROR(APHA_PARSE_INVALID_VALUE, "+0");
+    TEST_ERROR(APHA_PARSE_INVALID_VALUE, "+1");
+    TEST_ERROR(APHA_PARSE_INVALID_VALUE, ".123"); /* at least one digit before '.' */
+    TEST_ERROR(APHA_PARSE_INVALID_VALUE, "1.");   /* at least one digit after '.' */
+    TEST_ERROR(APHA_PARSE_INVALID_VALUE, "nan");
 }
 
 static void test_parse(){
@@ -74,16 +118,16 @@ static void test_parse(){
     test_parse_null();
     test_parse_true();
     test_parse_false();
-
-    test_parse_number();
-#endif    
+#endif  
     test_parse_number_too_big();
-#if 0
     test_parse_not_singular();
+    test_parse_invalid_value();
+    test_parse_number();
+#if 0
     test_parse_invalid_value();
 #endif
 }
-
+#include <errno.h>
 int main(){
     test_parse();
     printf("%d/%d passed\n", test_pass, test_count);
