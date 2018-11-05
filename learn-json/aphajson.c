@@ -185,7 +185,7 @@ static int apha_parse_string(apha_value* v, apha_context* c){
                             c->top = head;
                             return APHA_PARSE_INVALID_UNICODE_HEX;
                         }
-                        printf("u[%u]\n", u);
+                        //printf("u[%u]\n", u);
                         if(0xD800 <= u && u <= 0xDBFF){
                             if(*p++ != '\\') return APHA_PARSE_INVALID_UNICODE_SURROGATE;
                             if(*p++ != 'u')  return APHA_PARSE_INVALID_UNICODE_SURROGATE;
@@ -219,6 +219,58 @@ static int apha_parse_string(apha_value* v, apha_context* c){
         }
     }
 }
+static int apha_parse_value(apha_value* v, apha_context* c);
+
+static int apha_parse_array(apha_value* v, apha_context* c){
+    size_t size = 0;
+    int ret;
+    assert(*(c->json) == '[');
+
+    c->json += 1;
+
+    apha_ignore_whitespace(c);
+    if(*(c->json) == ']'){
+        c->json += 1;
+        v->type = APHA_ARRAY;
+        v->u.a.e = NULL;
+        v->u.a.size = 0;
+        return APHA_PARSE_OK;
+    }
+
+    while(1){
+        apha_value e;
+        apha_init(&e);
+
+        if((ret = apha_parse_value(&e, c)) != APHA_PARSE_OK){
+            break;
+        }
+        memcpy(apha_push(c, sizeof(apha_value)), &e, sizeof(apha_value));
+        size += 1;
+        apha_ignore_whitespace(c);
+        if(*(c->json) == ','){
+            c->json += 1;
+            apha_ignore_whitespace(c);
+        }else if(*(c->json) == ']'){
+            c->json += 1;
+            v->u.a.size = size;
+            v->type = APHA_ARRAY;
+
+            v->u.a.e = (apha_value*) malloc (sizeof(apha_value) * size);
+            memcpy(v->u.a.e, apha_pop(c, sizeof(apha_value) * size), sizeof(apha_value) * size);
+            return APHA_PARSE_OK;
+        }else{
+            // something wrong
+            ret = APHA_PARSE_INVALID_VALUE;
+            break;
+        }
+    }
+
+    for(int i = 0; i < size; i++){
+        apha_free(apha_pop(c, sizeof(apha_value)));
+    }
+    return ret;
+}
+
 static int apha_parse_value(apha_value* v, apha_context* c){
     const char* p = c->json;
     
@@ -228,6 +280,7 @@ static int apha_parse_value(apha_value* v, apha_context* c){
         case 'f' : return apha_parse_literal(v, c, "false", APHA_FALSE);
         case '\0' : return APHA_PARSE_EXCEPT_VALUE;
         case '\"' : return apha_parse_string(v, c);
+        case '[' : return apha_parse_array(v, c);
         default : return apha_parse_number(v, c);
     }
 }
@@ -286,4 +339,26 @@ void apha_set_string(apha_value* v, const char* str, size_t len){
 size_t apha_get_string_length(const apha_value* v) {
     assert(v != NULL && v->type == APHA_STRING);
     return v->u.s.len;
+}
+
+size_t apha_get_array_size(const apha_value* v) {
+    assert(v != NULL && v->type == APHA_ARRAY);
+    return v->u.a.size;
+}
+
+apha_value* apha_get_array_element(const apha_value* v, size_t index){
+    return &(v->u.a.e[index]);
+}
+
+size_t apha_get_object_size(const apha_value* v){
+    return v->u.o.size;
+}
+const char* apha_get_object_key(const apha_value* v, int index){
+    return (v->u.o.m[index]).k;
+}
+size_t apha_get_object_key_length(const apha_value* v, int index){
+    return 0;
+}
+apha_value* apha_get_object_value(const apha_value* v, int index){
+    return NULL;
 }

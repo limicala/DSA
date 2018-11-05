@@ -19,8 +19,11 @@ int test_count = 0;
 #define ASSERT_STR(except, actual, actual_len) \
     ASSERT_BASE(sizeof(except) - 1 == actual_len && memcmp(except, actual, actual_len) == 0, except, actual, "%s")
 
+#define ASSERT_SIZE_T(expect, actual) ASSERT_BASE((expect) == (actual), (size_t)expect, (size_t)actual, "%zu")
+
 #define ASSERT_TRUE(actual)  ASSERT_BASE( actual != 0, "true", "false", "%s")
 #define ASSERT_FALSE(actual) ASSERT_BASE( actual == 0, "false", "true", "%s")
+
 
 #define TEST_ERROR(expect_ret, json) do {\
     apha_value v; \
@@ -111,6 +114,72 @@ static void test_parse_string() {
     TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
 }
 
+static void test_parse_array() {
+    size_t i, j;
+    apha_value v;
+
+    apha_init(&v);
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, "[ ]"));
+    ASSERT_INT(APHA_ARRAY, apha_get_type(&v));
+    ASSERT_SIZE_T(0, apha_get_array_size(&v));
+    apha_free(&v);
+
+    apha_init(&v);
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
+    ASSERT_INT(APHA_ARRAY, apha_get_type(&v));
+    ASSERT_SIZE_T(5, apha_get_array_size(&v));
+    ASSERT_INT(APHA_NULL,   apha_get_type(apha_get_array_element(&v, 0)));
+    ASSERT_INT(APHA_FALSE,  apha_get_type(apha_get_array_element(&v, 1)));
+    ASSERT_INT(APHA_TRUE,   apha_get_type(apha_get_array_element(&v, 2)));
+    ASSERT_INT(APHA_NUMBER, apha_get_type(apha_get_array_element(&v, 3)));
+    ASSERT_INT(APHA_STRING, apha_get_type(apha_get_array_element(&v, 4)));
+    ASSERT_DOUBLE(123.0, apha_get_number(apha_get_array_element(&v, 3)));
+
+    apha_value* a = apha_get_array_element(&v, 4);
+    ASSERT_STR("abc", apha_get_string(apha_get_array_element(&v, 4)), apha_get_string_length(apha_get_array_element(&v, 4)));
+    apha_free(&v);
+
+    apha_init(&v);
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+    ASSERT_INT(APHA_ARRAY, apha_get_type(&v));
+    ASSERT_SIZE_T(4, apha_get_array_size(&v));
+    for (i = 0; i < 4; i++) {
+        apha_value* a = apha_get_array_element(&v, i);
+        ASSERT_INT(APHA_ARRAY, apha_get_type(a));
+        ASSERT_SIZE_T(i, apha_get_array_size(a));
+        for (j = 0; j < i; j++) {
+            apha_value* e = apha_get_array_element(a, j);
+            ASSERT_INT(APHA_NUMBER, apha_get_type(e));
+            ASSERT_DOUBLE((double)j, apha_get_number(e));
+        }
+    }
+    apha_free(&v);
+}
+
+static void test_parse_object(){
+    apha_value v;
+    size_t i;
+
+    apha_init(&v);
+    ASSERT_INT(APHA_PARSE_OK, apha_parse(&v,
+        " { "
+        "\"n\" : null , "
+        "\"f\" : false , "
+        "\"t\" : true , "
+        "\"i\" : 123 , "
+        "\"s\" : \"abc\", "
+        "\"a\" : [ 1, 2, 3 ],"
+        "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+        " } "
+    ));
+    ASSERT_INT(APHA_OBJECT, apha_get_type(&v));
+    ASSERT_SIZE_T(7, apha_get_object_size(&v));
+    ASSERT_STR("n", apha_get_object_key(&v, 0), apha_get_object_key_length(&v, 0));
+    ASSERT_INT(APHA_NULL,   apha_get_type(apha_get_object_value(&v, 0)));
+
+    apha_free(&v);
+}
+
 static void test_parse_missing_quotation_mark() {
     TEST_ERROR(APHA_PARSE_MISS_QUOTATION_MARK, "\"");
     TEST_ERROR(APHA_PARSE_MISS_QUOTATION_MARK, "\"abc");
@@ -198,8 +267,20 @@ static void test_parse(){
     
     test_parse_invalid_unicode_surrogate();
 }
+
+void other_test(){
+    const char* test = "H阿萨o\"W\"orld";
+
+    char* dest = (char*) malloc ( sizeof(char) * 32 );
+
+    strcpy(dest, test);
+
+    printf("[%s] \n[%s]\n", test, dest);
+}
 int main(){
-    test_parse();
+    //test_parse();
+    //test_parse_array();
+    test_parse_object();
     printf("%d/%d passed\n", test_pass, test_count);
     return 1;
 }
